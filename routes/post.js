@@ -1,3 +1,4 @@
+const { query } = require("express");
 const express = require("express");
 
 const multer = require("multer");
@@ -11,6 +12,9 @@ const router = express.Router();
 const response = (res, status, message) => {
   return res.status(status).json({ error: message });
 };
+
+
+
 
 const storage = multer.diskStorage({
   destination: function (req, file, callback) {
@@ -42,15 +46,10 @@ const postHepler = async (req, res, postImage = undefined) => {
     newPostData.postImage = postImage;
   }
 
-  if (req.body.replyTo != "undefined") {
-    newPostData.replyTo = req.body.replyTo;
-  }
-
   let newPost;
   try {
     newPost = await Post.create(newPostData);
     newPost = await User.populate(newPost, { path: "postedBy" });
-    newPost = await Post.populate(newPost, { path: "replyTo" });
   } catch (err) {
     console.log(err);
     return response(res, 400, "Something went wrong, Please try again later");
@@ -68,24 +67,27 @@ router.post("/withImage", upload.single("image"), async (req, res) => {
 
 router.get("/:id", async (req, res) => {
   const postId = req.params.id;
-  let postData = await getPost({_id: postId});
-  postData = postData[0];
-  const results= {
-      postData: postData
-  }
-  if(postData.replyTo && postData.replyTo !== undefined){
-      results.replyTo = postData.replyTo;
-  }
-
-  results.replies = await getPost({replyTo: postId});
-  return res.status(200).json(results);
+  let post = await getPost({_id: postId});
+  post = post[0];
+  return res.status(200).json(post);
 
 });
 
 
 
 router.get("/", async (req, res) => {
-  const posts = await getPost({});
+  let user;
+  if(req.query.userId){
+    user = await User.findById(req.query.userId);
+  }
+  let queryObj = {};
+  if(req.query.postedBy){
+    queryObj = {postedBy: req.query.postedBy}
+  }else if(req.query.liked){
+    queryObj = {_id : {$in : user.likes}}
+  }
+
+  const posts = await getPost(queryObj);
   return res.status(200).json(posts);
 });
 
@@ -108,7 +110,6 @@ router.put("/like", async (req, res) => {
       { new: true }
     )
       .populate("postedBy")
-      .populate("replyTo")
       .populate("retweetData");
 
     return res.status(200).json({
@@ -157,7 +158,6 @@ router.post("/retweet", async (req, res) => {
       { new: true }
     )
       .populate("postedBy")
-      .populate("replyTo")
       .populate("retweetData");
 
     return res.status(200).json({
@@ -174,12 +174,12 @@ async function getPost(filter) {
   let results = await Post.find(filter)
     .populate("postedBy")
     .populate("retweetData")
-    .populate("replyTo")
     .sort({ createdAt: -1 })
-    .catch((error) => console.log(error));
-  results = await User.populate(results, { path: "replyTo.postedBy" });
-  
+    .catch((error) => console.log(error));  
   return await User.populate(results, { path: "retweetData.postedBy" });
 }
+
+
+
 
 module.exports = router;
