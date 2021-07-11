@@ -22,7 +22,9 @@ const AuthRouter = require("./routes/auth");
 const PostRouter = require("./routes/post");
 const UserRouter = require("./routes/user");
 const CommentRouter = require('./routes/comment');
-const searchRouter = require('./routes/search')
+const searchRouter = require('./routes/search');
+const chatRouter = require('./routes/chat');
+const messageRouter = require('./routes/message');
 
 const AuthController = require("./controllers/auth");
 
@@ -32,6 +34,9 @@ app.use("/post", AuthController.protected, PostRouter);
 app.use("/user", AuthController.protected, UserRouter);
 app.use("/comment", AuthController.protected, CommentRouter);
 app.use("/search", AuthController.protected, searchRouter);
+app.use("/chat", AuthController.protected, chatRouter);
+app.use("/message", AuthController.protected, messageRouter);
+
 
 
 app.use("*", (req, res) => {

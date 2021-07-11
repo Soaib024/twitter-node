@@ -4,6 +4,7 @@ const express = require("express");
 const multer = require("multer");
 const path = require("path");
 const { v4: uuid } = require("uuid");
+const Comment = require("../schema/CommentSchema");
 
 const Post = require("../schema/PostSchema");
 const User = require("../schema/UserSchema");
@@ -90,6 +91,30 @@ router.get("/", async (req, res) => {
   const posts = await getPost(queryObj);
   return res.status(200).json(posts);
 });
+
+router.delete('/:id', async (req, res) => {
+  const postId = req.params.id;
+  const post = await Post.findById(postId);
+  // if(post.postedBy !== req.user._id){
+  //   return res.status(401);
+  // }
+
+  //delete all retweets
+  await Post.deleteMany({retweetData: postId});
+  await User.updateMany({_id : {$in: post.retweetUsers}}, {$pull : {retweets: postId}})
+
+  //delete all likes
+  await User.updateMany({_id: {$in: post.likes}}, {$pull: {likes: postId}})
+
+  //delete all comments
+  await Comment.deleteMany({post: postId});
+  await User.updateMany({_id: {$in: post.comments}}, {$pull: {comments: postId}}) // not working
+
+  //delete post
+  await Post.findByIdAndDelete(postId);
+
+  return res.status(200)
+})
 
 router.put("/like", async (req, res) => {
   const postId = req.body.postId;
