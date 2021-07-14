@@ -1,5 +1,6 @@
 const express = require('express');
 const Comment = require('../schema/CommentSchema');
+const Notification = require('../schema/NotificationSchema');
 const Post = require('../schema/PostSchema');
 const User = require('../schema/UserSchema');
 const router = express.Router();
@@ -16,8 +17,9 @@ router.post('/:postId', async (req, res) => {
     try{
         let newComment = await Comment.create({post, user, comment});
         newComment = await User.populate(newComment, {path: "user"})
-        await Post.findByIdAndUpdate(post, {$addToSet: {comments: newComment._id}});
+        const updatedPost = await Post.findByIdAndUpdate(post, {$addToSet: {comments: newComment._id}});
         await User.findByIdAndUpdate(user, {$addToSet: {comments: newComment._id}});
+        await Notification.insertNotification(updatedPost.postedBy._id, user, "comment", post)
         return res.status(200).json(newComment);
     }catch(err){
         console.log(err);

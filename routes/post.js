@@ -1,10 +1,10 @@
-const { query } = require("express");
 const express = require("express");
 
 const multer = require("multer");
 const path = require("path");
 const { v4: uuid } = require("uuid");
 const Comment = require("../schema/CommentSchema");
+const Notification = require("../schema/NotificationSchema");
 
 const Post = require("../schema/PostSchema");
 const User = require("../schema/UserSchema");
@@ -13,9 +13,6 @@ const router = express.Router();
 const response = (res, status, message) => {
   return res.status(status).json({ error: message });
 };
-
-
-
 
 const storage = multer.diskStorage({
   destination: function (req, file, callback) {
@@ -68,31 +65,30 @@ router.post("/withImage", upload.single("image"), async (req, res) => {
 
 router.get("/:id", async (req, res) => {
   const postId = req.params.id;
-  let post = await getPost({_id: postId});
+  let post = await getPost({ _id: postId });
   post = post[0];
   return res.status(200).json(post);
-
 });
-
-
 
 router.get("/", async (req, res) => {
   let user;
-  if(req.query.userId){
+  if (req.query.userId) {
     user = await User.findById(req.query.userId);
   }
   let queryObj = {};
-  if(req.query.postedBy){
-    queryObj = {postedBy: req.query.postedBy}
-  }else if(req.query.liked){
-    queryObj = {_id : {$in : user.likes}}
+  if (req.query.postedBy) {
+    queryObj = { postedBy: req.query.postedBy };
+  } else if (req.query.liked) {
+    queryObj = { _id: { $in: user.likes } };
+  }else if(req.query.followingOnly){
+    queryObj = {$or : [{postedBy: {$in: req.user.following}}, {postedBy:req.user._id}]}
   }
 
   const posts = await getPost(queryObj);
   return res.status(200).json(posts);
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete("/:id", async (req, res) => {
   const postId = req.params.id;
   const post = await Post.findById(postId);
   // if(post.postedBy !== req.user._id){
@@ -100,21 +96,30 @@ router.delete('/:id', async (req, res) => {
   // }
 
   //delete all retweets
-  await Post.deleteMany({retweetData: postId});
-  await User.updateMany({_id : {$in: post.retweetUsers}}, {$pull : {retweets: postId}})
+  await Post.deleteMany({ retweetData: postId });
+  await User.updateMany(
+    { _id: { $in: post.retweetUsers } },
+    { $pull: { retweets: postId } }
+  );
 
   //delete all likes
-  await User.updateMany({_id: {$in: post.likes}}, {$pull: {likes: postId}})
+  await User.updateMany(
+    { _id: { $in: post.likes } },
+    { $pull: { likes: postId } }
+  );
 
   //delete all comments
-  await Comment.deleteMany({post: postId});
-  await User.updateMany({_id: {$in: post.comments}}, {$pull: {comments: postId}}) // not working
+  await Comment.deleteMany({ post: postId });
+  await User.updateMany(
+    { _id: { $in: post.comments } },
+    { $pull: { comments: postId } }
+  ); // not working
 
   //delete post
   await Post.findByIdAndDelete(postId);
 
-  return res.status(200)
-})
+  return res.status(200);
+});
 
 router.put("/like", async (req, res) => {
   const postId = req.body.postId;
@@ -137,6 +142,15 @@ router.put("/like", async (req, res) => {
       .populate("postedBy")
       .populate("retweetData");
 
+    if (!isAlreadyLiked) {
+      await Notification.insertNotification(
+        updatedPost.postedBy._id,
+        user._id,
+        "like",
+        postId
+      );
+    }
+
     return res.status(200).json({
       post: updatedPost,
       user: updatedUser,
@@ -149,6 +163,7 @@ router.put("/like", async (req, res) => {
 
 router.post("/retweet", async (req, res) => {
   const postId = req.body.postId;
+  const originalPost = await Post.findById(postId).populate("postedBy")
   let deletedPost;
   try {
     deletedPost = await Post.findOneAndDelete({
@@ -185,6 +200,12 @@ router.post("/retweet", async (req, res) => {
       .populate("postedBy")
       .populate("retweetData");
 
+      if(deletedPost === null){
+        if(updatedPost.postedBy._id.toString() !== req.user._id.toString()){
+          Notification.insertNotification(originalPost.postedBy._id, req.user._id, "retweet", updatedPost._id)
+        }
+      }
+
     return res.status(200).json({
       post: updatedPost,
       user: updatedUser,
@@ -195,16 +216,15 @@ router.post("/retweet", async (req, res) => {
   }
 });
 
+
+
 async function getPost(filter) {
   let results = await Post.find(filter)
     .populate("postedBy")
     .populate("retweetData")
     .sort({ createdAt: -1 })
-    .catch((error) => console.log(error));  
+    .catch((error) => console.log(error));
   return await User.populate(results, { path: "retweetData.postedBy" });
 }
-
-
-
 
 module.exports = router;

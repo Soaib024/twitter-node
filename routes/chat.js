@@ -7,7 +7,7 @@ router.post('/', (req, res) => {
     const chatData = req.body;
     chatData.users.push(req.user._id)
     Chat.create(chatData)
-    .then(res.status(200))
+    .then(results => res.status(204).json(results))
     .catch(err => res.status(400))
 })
 
@@ -39,5 +39,15 @@ router.get('/:id', (req, res) => {
         res.sendStatus(400);
     })
 })
+
+//change chat name
+router.put('/:chatId', async (req, res) => {
+    const chatId = req.params.chatId;
+    const name = req.body.name;
+    await Chat.findByIdAndUpdate(chatId, {chatName: name})
+    res.status(204)
+})
+
+
 
 module.exports = router;
