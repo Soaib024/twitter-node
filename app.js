@@ -6,7 +6,7 @@ dotenv.config({ path: "./.env" });
 
 require("./database");
 
-const port = PROCESS.env.PORT || 5000;
+const port = process.env.PORT || 5000;
 const app = express();
 
 app.use(cors());
