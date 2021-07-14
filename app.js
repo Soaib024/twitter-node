@@ -14,7 +14,7 @@ app.options("*", cors());
 app.use(express.json({}));
 app.use(express.urlencoded({ extended: false }));
 app.use(express.static(path.join(__dirname, "uploads")));
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use("uploads", express.static(path.join(__dirname, "uploads")));
 
 const AuthRouter = require("./routes/auth");
 const PostRouter = require("./routes/post");
