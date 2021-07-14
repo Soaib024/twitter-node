@@ -27,6 +27,7 @@ const notificationsRouter = require("./routes/notifications");
 const uploadsRouter = require("./routes/uploads");
 
 const AuthController = require("./controllers/auth");
+const News = require("./schema/NewsScheme");
 
 app.use("/auth", AuthRouter);
 app.use("/post", AuthController.protected, PostRouter);
@@ -37,6 +38,12 @@ app.use("/chat", AuthController.protected, chatRouter);
 app.use("/message", AuthController.protected, messageRouter);
 app.use("/notifications", AuthController.protected, notificationsRouter);
 app.use("/uploads", AuthController.protected, uploadsRouter);
+
+app.get("/news", (req, res) => {
+  News.find()
+  .then(results => res.status(200).json(results[0].news))
+  .catch(err => console.log(err))
+})
 
 app.use("*", (req, res) => {
   return res.status(404).json({ error: "page not found" });
