@@ -13,7 +13,7 @@ app.use(cors());
 app.options("*", cors());
 app.use(express.json({}));
 app.use(express.urlencoded({ extended: false }));
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static(path.join(__dirname, "uploads")));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 const AuthRouter = require("./routes/auth");
